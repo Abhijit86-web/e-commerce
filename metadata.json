@@ -1,0 +1,6 @@
+{
+  "name": "AURA Artisanal Fine Jewelry",
+  "description": "Handcrafted bespoke jewelry atelier with interactive sizing, verified customer reviews with photos, secure checkout with multiple payment methods & coupon support, and AI jewelry styling concierge.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
