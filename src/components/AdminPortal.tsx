@@ -195,6 +195,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     } finally {
       setLoadingCustomers(false);
     }
+  };
+
   // Fetch payment transaction history (Protected)
   const fetchPayments = async () => {
     if (!adminSession) return;

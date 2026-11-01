@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <div className="flex items-center justify-center gap-2 mx-auto">
           <Sparkles className="w-3.5 h-3.5 text-[#e0a96d]" />
-          <span>Code <strong className="text-[#e0a96d] font-semibold underline decoration-dotted">ARTISAN15</strong> for 15% off &bull; Free insured delivery on orders $150+</span>
+          <span>Code <strong className="text-[#e0a96d] font-semibold underline decoration-dotted">ARTISAN15</strong> for 15% off &bull; Free insured delivery on orders 1000+</span>
         </div>
 
         {/* Utility Links: Delivery Tracking & Staff Admin Access */}
@@ -388,7 +388,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => {
-                onOpenAdmin();
+                onOpenAdmin?.();
                 setMobileMenuOpen(false);
               }}
               className="flex items-center gap-2 text-sm text-[#e0a96d] bg-[#1a1513] font-semibold py-2.5 px-3 rounded-lg hover:bg-[#2b221e] border border-[#e0a96d]/30 mt-1 cursor-pointer"
