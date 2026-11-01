@@ -13,8 +13,6 @@ export const SizingGuideModal: React.FC<SizingGuideModalProps> = ({
   onClose,
   onOpenChatWithQuery,
 }) => {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState<'ring' | 'necklace'>('ring');
   const [sliderDiameter, setSliderDiameter] = useState<number>(17.3); // Default US 7 (17.3mm)
   const [circumferenceInput, setCircumferenceInput] = useState<string>('');
@@ -55,6 +53,8 @@ export const SizingGuideModal: React.FC<SizingGuideModalProps> = ({
     }
     setCalculatedSize(`Your recommended fit is US Size ${nearest.us} (UK ${nearest.uk}, ${nearest.circMm} circumference).`);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Star, Eye, ShoppingBag, Check, Heart } from 'lucide-react';
 import { Product } from '../types';
+import { formatINR } from '../utils/currency';
 
 interface ProductCardProps {
   product: Product;
@@ -58,7 +59,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
           {product.originalPrice && (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#8a5d3b] text-white shadow-sm">
-              Save ${product.originalPrice - product.price}
+              Save {formatINR(product.originalPrice - product.price)}
             </span>
           )}
         </div>
@@ -171,11 +172,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="font-serif text-lg font-bold text-[#241e1b]">
-                  ${product.price}
+                  {formatINR(product.price)}
                 </span>
                 {product.originalPrice && (
                   <span className="text-xs text-[#8c7866] line-through">
-                    ${product.originalPrice}
+                    {formatINR(product.originalPrice)}
                   </span>
                 )}
               </div>

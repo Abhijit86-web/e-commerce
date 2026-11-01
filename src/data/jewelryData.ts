@@ -6,8 +6,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Sol Invictus Hammered Band',
     subtitle: 'Hand-forged 18k solid gold finish with organic molten texture',
     category: 'rings',
-    price: 185,
-    originalPrice: 220,
+    price: 14999,
+    originalPrice: 17999,
     rating: 4.9,
     reviewCount: 38,
     images: [
@@ -33,7 +33,7 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Luna Baroque Pearl Talisman',
     subtitle: 'Organic cultured freshwater baroque pearl on hand-knotted silk cord',
     category: 'necklaces',
-    price: 240,
+    price: 18999,
     rating: 5.0,
     reviewCount: 42,
     images: [
@@ -59,8 +59,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Celestial Teal Sapphire Solitaire',
     subtitle: 'Ethically mined Montana teal sapphire set in granulated gold claw prongs',
     category: 'rings',
-    price: 395,
-    originalPrice: 450,
+    price: 32999,
+    originalPrice: 37500,
     rating: 4.9,
     reviewCount: 29,
     images: [
@@ -86,7 +86,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Ginkgo Botanical Drop Earrings',
     subtitle: 'Delicate hand-chiseled fan leaves with kinetic ear wire movement',
     category: 'earrings',
-    price: 135,
+    price: 11499,
+    originalPrice: 13999,
     rating: 4.8,
     reviewCount: 31,
     images: [
@@ -109,8 +110,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Aegis Sculpted Silver Cuff',
     subtitle: 'Substantial solid recycled 925 sterling silver wrist torque',
     category: 'bracelets',
-    price: 210,
-    originalPrice: 245,
+    price: 14499,
+    originalPrice: 16999,
     rating: 4.9,
     reviewCount: 24,
     images: [
@@ -134,7 +135,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Soleil Ancient Sun Medallion',
     subtitle: 'Cast relief coin pendant featuring solar rays and bezel-set diamond',
     category: 'necklaces',
-    price: 195,
+    price: 22999,
+    originalPrice: 25999,
     rating: 5.0,
     reviewCount: 56,
     images: [
@@ -160,8 +162,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Amor Fati Ceremonial Curved Band',
     subtitle: 'Chevron nesting wedding band designed to hug solitaire rings seamlessly',
     category: 'bridal',
-    price: 310,
-    originalPrice: 360,
+    price: 28999,
+    originalPrice: 33999,
     rating: 4.9,
     reviewCount: 19,
     images: [
@@ -186,7 +188,8 @@ export const JEWELRY_PRODUCTS: Product[] = [
     name: 'Kintsugi Raw Emerald Huggies',
     subtitle: 'Golden seam texture inspired by Japanese porcelain repair with raw emerald baguettes',
     category: 'earrings',
-    price: 165,
+    price: 9999,
+    originalPrice: 12500,
     rating: 4.8,
     reviewCount: 22,
     images: [
@@ -306,54 +309,55 @@ export const AVAILABLE_COUPONS: Coupon[] = [
     discountType: 'percentage',
     discountValue: 15,
     description: '15% off your entire handcrafted order',
-    expiresText: 'Limited Seasonal Offer'
+    expiresText: 'Limited Festive Offer'
   },
   {
-    code: 'SPARKLE10',
+    code: 'SPARKLE1000',
     discountType: 'fixed',
-    discountValue: 10,
-    minPurchase: 75,
-    description: '$10 off orders over $75',
+    discountValue: 1000,
+    minPurchase: 7500,
+    description: '₹1,000 off on orders over ₹7,500',
     expiresText: 'Welcome gift'
   },
   {
     code: 'WELCOME20',
     discountType: 'percentage',
     discountValue: 20,
-    minPurchase: 120,
-    description: '20% off for first-time studio collectors (min. $120)',
-    expiresText: 'New collector privilege'
+    minPurchase: 15000,
+    description: '20% off for first-time studio patrons (min. ₹15,000)',
+    expiresText: 'New patron privilege'
   },
   {
     code: 'FREESHIP',
     discountType: 'fixed',
-    discountValue: 15, // offsets shipping cost
-    description: 'Free expedited courier delivery worldwide',
-    expiresText: 'Exclusive perks'
+    discountValue: 499,
+    minPurchase: 5000,
+    description: 'Free expedited courier delivery across India (min. ₹5,000)',
+    expiresText: 'Exclusive perk'
   }
 ];
 
 export const SHIPPING_METHODS: ShippingMethod[] = [
   {
     id: 'ship-standard',
-    name: 'Artisan Insured Ground',
+    name: 'Artisan Insured Ground (India)',
     price: 0,
     duration: '3-5 Business Days',
-    description: 'Tracked, insured carbon-neutral packaging in recyclable cotton pouches',
+    description: 'Tracked, insured carbon-neutral packaging via BlueDart / FedEx Express',
     icon: 'Truck'
   },
   {
     id: 'ship-express',
-    name: 'Atelier Priority Courier',
-    price: 15,
+    name: 'Atelier Priority Air Courier',
+    price: 499,
     duration: '1-2 Business Days',
-    description: 'Guaranteed signature-on-delivery via FedEx Priority, tamper-evident security seal',
+    description: 'Guaranteed next-day air dispatch, tamper-evident security seal with OTP verification',
     icon: 'Zap'
   },
   {
     id: 'ship-gift-deluxe',
-    name: 'Bespoke Wax-Sealed Gift Delivery',
-    price: 25,
+    name: 'Bespoke Wax-Sealed Keepsake Delivery',
+    price: 799,
     duration: '2-3 Business Days',
     description: 'Hand-written calligraphy card, dried botanical sprig, embossed velvet keepsake box & wax seal',
     icon: 'Gift'

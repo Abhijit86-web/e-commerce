@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Star, ShieldCheck, Ruler, Truck, RotateCcw, Sparkles, Check, Heart, ShoppingBag } from 'lucide-react';
 import { Product, Review } from '../types';
+import { formatINR } from '../utils/currency';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -19,14 +20,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   reviews,
   onWriteReview,
 }) => {
-  if (!product) return null;
-
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>(
-    product.sizes && product.sizes.length > 0 ? product.sizes[0] : ''
+    product?.sizes && product.sizes.length > 0 ? product.sizes[0] : ''
   );
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+
+  if (!product) return null;
 
   const productReviews = reviews.filter((r) => r.productId === product.id);
 
@@ -133,11 +134,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {/* Pricing */}
               <div className="flex items-baseline gap-3 pb-3 border-b border-[#e8ded1]">
                 <span className="font-serif text-3xl font-bold text-[#241e1b]">
-                  ${product.price}
+                  {formatINR(product.price)}
                 </span>
                 {product.originalPrice && (
                   <span className="text-sm text-[#8c7866] line-through">
-                    ${product.originalPrice}
+                    {formatINR(product.originalPrice)}
                   </span>
                 )}
                 <span className="text-xs text-[#a0683a] bg-[#f5ede0] px-2.5 py-1 rounded-md font-semibold">
@@ -220,7 +221,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     ) : (
                       <>
                         <ShoppingBag className="w-4 h-4" />
-                        <span>Add to Bag • ${(product.price * quantity).toFixed(2)}</span>
+                        <span>Add to Bag • {formatINR(product.price * quantity)}</span>
                       </>
                     )}
                   </button>
@@ -233,7 +234,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <Truck className="w-4 h-4 text-[#a0683a] shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-[#241e1b] block">Insured Studio Courier</span>
-                    <span className="text-[11px]">Free delivery on orders $150+</span>
+                    <span className="text-[11px]">Free delivery on orders ₹5,000+</span>
                   </div>
                 </div>
 

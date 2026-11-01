@@ -8,8 +8,6 @@ interface TrackOrderModalProps {
 }
 
 export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
   const [query, setQuery] = useState('AUR-829104');
   const [order, setOrder] = useState<OrderConfirmation | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,20 +28,19 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({ isOpen, onClos
         setOrder(null);
         setErrorMsg(data.message || 'No order found matching your inquiry.');
       }
-    } catch (err) {
-      console.error('Tracking query error:', err);
+    } catch {
       setErrorMsg('Network error checking order status.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial lookup if default query is present
+  // Initial lookup if default query is present and modal is open
   React.useEffect(() => {
-    if (query && !order) {
+    if (isOpen && query && !order) {
       handleSearch();
     }
-  }, []);
+  }, [isOpen]);
 
   const getStepProgress = (status: string) => {
     switch (status) {
@@ -61,6 +58,8 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({ isOpen, onClos
   };
 
   const currentStep = order ? getStepProgress(order.status) : 1;
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">

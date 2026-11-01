@@ -86,13 +86,18 @@ export interface CheckoutDetails {
   giftWrapping: boolean;
   giftMessage: string;
   waxSealStamp: string;
-  paymentMethod: 'card' | 'applepay' | 'paypal' | 'klarna';
+  paymentMethod: 'upi' | 'card' | 'netbanking' | 'cod' | 'applepay' | 'paypal' | 'klarna';
   cardDetails?: {
     cardNumber: string;
     cardholderName: string;
     expiry: string;
     cvv: string;
   };
+  upiDetails?: {
+    upiId: string;
+    app?: string;
+  };
+  netbankingBank?: string;
   appliedCoupon: Coupon | null;
 }
 
@@ -117,6 +122,37 @@ export interface OrderConfirmation {
   paymentMethod: string;
 }
 
+export interface AdminSession {
+  token: string;
+  email: string;
+  name: string;
+  role: 'super_admin' | 'atelier_director';
+  loginTime: string;
+}
+
+export interface CustomerUser {
+  id: string;
+  name: string;
+  email: string;
+  role?: 'customer' | 'admin';
+  phone?: string;
+  avatar?: string;
+  joinedDate: string;
+  loginCount?: number;
+  lastLogin?: string;
+  addresses?: Array<{
+    fullName: string;
+    street: string;
+    apt?: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    isDefault?: boolean;
+  }>;
+  vipTier?: 'Atelier Patron' | 'Collector Silver' | 'Haute Joaillerie Gold';
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
@@ -129,3 +165,87 @@ export interface ChatMessage {
     label: string;
   };
 }
+
+export interface AdminCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'customer' | 'admin';
+  joinedDate: string;
+  vipTier: string;
+  loginCount: number;
+  lastLogin: string;
+  ordersCount: number;
+  totalSpent: number; // in INR
+  lastOrderDate: string;
+  lastOrderId: string | null;
+  address: string;
+}
+
+export interface PaymentRecord {
+  paymentId: string;
+  orderId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  amountINR: number;
+  paymentMethod: string;
+  gatewayRef: string;
+  status: 'SUCCESS' | 'CAPTURED' | 'PENDING';
+  dateStr: string;
+  timestamp: string;
+}
+
+export interface LoginRecord {
+  loginId: string;
+  customerId: string;
+  customerName: string;
+  phone: string;
+  email: string;
+  loginMethod: 'Phone OTP (SMS)' | 'Email & Password' | 'Master Admin Key';
+  status: 'SUCCESS';
+  dateStr: string;
+  timestamp: string;
+}
+
+export interface DatabaseOverview {
+  totalCustomers: number;
+  totalLogins: number;
+  totalPayments: number;
+  totalRevenueINR: number;
+  totalOrders: number;
+  storageType: string;
+  lastSyncedAt: string;
+}
+
+export interface AdminDashboardData {
+  grossRevenue: number; // in INR
+  totalOrders: number;
+  averageOrderValue: number; // in INR
+  totalUnitsSold: number;
+  totalCustomerLogins: number;
+  totalPaymentsCaptured: number;
+  ordersByStatus: {
+    confirmed: number;
+    handcrafting: number;
+    dispatched: number;
+    delivered: number;
+  };
+  categoryStats: Record<string, { count: number; revenue: number }>;
+  inventorySummary: {
+    totalProducts: number;
+    totalUnitsInStock: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+  };
+  topProducts: Array<{
+    name: string;
+    units: number;
+    revenue: number;
+    image: string;
+  }>;
+  recentOrders: OrderConfirmation[];
+}
+
+

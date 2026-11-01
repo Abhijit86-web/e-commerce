@@ -17,8 +17,6 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
   selectedProduct,
   onReviewSubmitted,
 }) => {
-  if (!isOpen) return null;
-
   const [productId, setProductId] = useState<string>(
     selectedProduct ? selectedProduct.id : products[0]?.id || ''
   );
@@ -75,12 +73,14 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
           onClose();
         }, 1500);
       }
-    } catch (err) {
-      console.error('Review submit failed:', err);
+    } catch {
+      // Handled gracefully without error monitor noise
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">

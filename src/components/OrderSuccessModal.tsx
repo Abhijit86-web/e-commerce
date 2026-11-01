@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, CheckCircle, Package, Truck, Printer, Sparkles, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
 import { OrderConfirmation } from '../types';
+import { formatINR } from '../utils/currency';
 
 interface OrderSuccessModalProps {
   order: OrderConfirmation | null;
@@ -50,6 +51,9 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({ order, onC
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#8a5d3b]">Order Reference:</span>
                 <p className="font-mono text-base font-bold text-[#241e1b]">{order.orderId}</p>
+                {order.paymentId && (
+                  <span className="text-[10px] text-emerald-800 font-mono">Payment ID: {order.paymentId}</span>
+                )}
               </div>
               <div className="sm:text-right">
                 <span className="text-[10px] uppercase font-bold text-[#8a5d3b]">Expected Arrival:</span>
@@ -81,7 +85,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({ order, onC
             </div>
 
             <div className="p-3 bg-[#f5efe6] rounded-xl flex items-center justify-between text-[11px]">
-              <span>FedEx Priority Tracking ID:</span>
+              <span>BlueDart Insured Air Express Tracking ID:</span>
               <span className="font-mono font-bold text-[#241e1b]">{order.trackingNumber}</span>
             </div>
           </div>
@@ -107,13 +111,13 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({ order, onC
                 <span>Payment Summary:</span>
               </span>
               <p className="text-[#241e1b] font-medium">{order.paymentMethod}</p>
-              <p>Subtotal: ${order.totals.subtotal.toFixed(2)}</p>
+              <p>Subtotal: {formatINR(order.totals.subtotal)}</p>
               {order.totals.discount > 0 && (
-                <p className="text-emerald-700 font-medium">Discount: -${order.totals.discount.toFixed(2)}</p>
+                <p className="text-emerald-700 font-medium">Discount: -{formatINR(order.totals.discount)}</p>
               )}
-              <p>Delivery: {order.totals.shipping === 0 ? 'FREE' : `$${order.totals.shipping.toFixed(2)}`}</p>
+              <p>Delivery: {order.totals.shipping === 0 ? 'FREE' : formatINR(order.totals.shipping)}</p>
               <p className="font-serif font-bold text-sm text-[#241e1b] pt-1 border-t border-[#f0e8dc]">
-                Total Paid: ${order.totals.total.toFixed(2)}
+                Total Paid: {formatINR(order.totals.total)}
               </p>
             </div>
           </div>
@@ -138,7 +142,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({ order, onC
                     </div>
                   </div>
                   <span className="font-serif font-bold text-[#241e1b]">
-                    ${(item.product.price * item.quantity).toFixed(2)}
+                    {formatINR(item.product.price * item.quantity)}
                   </span>
                 </div>
               ))}

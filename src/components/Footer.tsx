@@ -161,9 +161,10 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
-                <button onClick={onOpenAdmin} className="text-[#e0a96d] hover:text-white transition-colors text-left font-semibold cursor-pointer">
-                  Atelier Admin Portal (Launch Jewels)
-                </button>
+                <span className="text-[#8c7866]">Heirloom Wax-Seal Service</span>
+              </li>
+              <li>
+                <span className="text-[#8c7866]">30-Day Complimentary Resizing</span>
               </li>
             </ul>
           </div>
@@ -210,9 +211,19 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
       </div>
 
-      {/* Bottom Bar: Copyright & Payment Icons */}
+      {/* Bottom Bar: Copyright & Payment Icons & Discreet Staff Gate */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 border-t border-[#3d3128] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8c7866]">
-        <p>&copy; {new Date().getFullYear()} AURA Artisanal Fine Jewelry Atelier. All rights reserved.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p>&copy; {new Date().getFullYear()} AURA Artisanal Fine Jewelry Atelier. All rights reserved.</p>
+          <button
+            onClick={onOpenAdmin}
+            className="px-2.5 py-1 rounded-lg bg-[#31261f] hover:bg-[#453428] text-[#e0a96d] border border-[#e0a96d]/40 text-[11px] font-semibold flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="Atelier Staff Management Access"
+          >
+            <Lock className="w-3 h-3 text-[#e0a96d]" />
+            <span>Admin Portal</span>
+          </button>
+        </div>
         
         <div className="flex items-center gap-3">
           <span className="text-[10px] tracking-wider uppercase font-medium">Payment Partners:</span>

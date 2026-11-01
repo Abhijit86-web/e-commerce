@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { JEWELRY_PRODUCTS, INITIAL_REVIEWS } from './data/jewelryData';
-import { Product, Review, CartItem, Coupon, OrderConfirmation } from './types';
+import { Product, Review, CartItem, Coupon, OrderConfirmation, CustomerUser, AdminSession } from './types';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ProductGrid } from './components/ProductGrid';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { SizingGuideModal } from './components/SizingGuideModal';
+import { VideoJewelSection } from './components/VideoJewelSection';
 import { ReviewsSection } from './components/ReviewsSection';
 import { WriteReviewModal } from './components/WriteReviewModal';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
-import { AuraChatbot } from './components/AuraChatbot';
-import { Footer } from './components/Footer';
+import { CustomerAuthModal } from './components/CustomerAuthModal';
+import { VisualScanModal } from './components/VisualScanModal';
+import { AdminAccessModal } from './components/AdminAccessModal';
 import { AdminPortal } from './components/AdminPortal';
 import { TrackOrderModal } from './components/TrackOrderModal';
+import { AuraChatbot } from './components/AuraChatbot';
+import { Footer } from './components/Footer';
 import { Sparkles, Ruler, ShieldCheck, HeartHandshake, Gem } from 'lucide-react';
 
 export default function App() {
@@ -22,6 +26,28 @@ export default function App() {
   const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Customer Authentication state (for regular shoppers & patrons)
+  const [currentUser, setCurrentUser] = useState<CustomerUser | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('aura_customer_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  });
+
+  // Dedicated Administrator Session state (Strictly private & isolated from customers)
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(() => {
+    try {
+      const savedAdmin = sessionStorage.getItem('aura_admin_session');
+      if (savedAdmin) return JSON.parse(savedAdmin);
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  });
 
   // Cart state with localStorage
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -31,7 +57,6 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-    // Default initial luxury item in bag for delight
     return [
       {
         product: JEWELRY_PRODUCTS[0],
@@ -56,9 +81,47 @@ export default function App() {
   const [reviewProductTarget, setReviewProductTarget] = useState<Product | null>(null);
   const [orderSuccessData, setOrderSuccessData] = useState<OrderConfirmation | null>(null);
 
-  // New Admin Portal & Delivery Tracking States
+  // Protected Admin Portal states
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isVisualScanOpen, setIsVisualScanOpen] = useState(false);
+  const [isAdminAccessModalOpen, setIsAdminAccessModalOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+
+  // Sync customer user to localStorage
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('aura_customer_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('aura_customer_user');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [currentUser]);
+
+  // Validate existing admin session with backend
+  useEffect(() => {
+    if (adminSession?.token) {
+      fetch('/api/admin/check-session', {
+        headers: {
+          'Authorization': `Bearer ${adminSession.token}`,
+          'x-admin-token': adminSession.token,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) {
+            sessionStorage.removeItem('aura_admin_session');
+            setAdminSession(null);
+            setIsAdminOpen(false);
+          }
+        })
+        .catch(() => {
+          // offline check fallback
+        });
+    }
+  }, []);
 
   // Sync cart to localStorage
   useEffect(() => {
@@ -68,6 +131,37 @@ export default function App() {
       // ignore
     }
   }, [cartItems]);
+
+  // Check URL query/hash for staff access (e.g. #admin or ?admin=true) & keyboard shortcut
+  useEffect(() => {
+    const checkStaffRoute = () => {
+      const isStaff = window.location.hash === '#admin' || window.location.search.includes('admin');
+      if (isStaff) {
+        if (adminSession) {
+          setIsAdminOpen(true);
+        } else {
+          setIsAdminAccessModalOpen(true);
+        }
+      }
+    };
+
+    checkStaffRoute();
+    window.addEventListener('hashchange', checkStaffRoute);
+
+    // Keyboard shortcut: Alt + A or Ctrl + Shift + A to open Admin Access
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.altKey && (e.key === 'a' || e.key === 'A')) || (e.ctrlKey && e.shiftKey && (e.key === 'a' || e.key === 'A'))) {
+        e.preventDefault();
+        handleOpenAdminPortal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', checkStaffRoute);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [adminSession]);
 
   // Fetch dynamic products from backend API (with fallback)
   useEffect(() => {
@@ -139,8 +233,7 @@ export default function App() {
         return { success: true, message: data.message };
       }
       return { success: false, message: data.message || 'Invalid coupon code.' };
-    } catch (err) {
-      console.error('Coupon validation error:', err);
+    } catch {
       return { success: false, message: 'Failed to validate coupon.' };
     }
   };
@@ -162,44 +255,66 @@ export default function App() {
     setIsChatOpen(true);
   };
 
-  // If Admin Portal is open, display full atelier manager dashboard
-  if (isAdminOpen) {
-    return (
-      <AdminPortal
-        onClose={() => setIsAdminOpen(false)}
-        products={products}
-        onProductCreated={(newProduct) => {
-          setProducts((prev) => [newProduct, ...prev]);
-        }}
-        onProductDeleted={(id) => {
-          setProducts((prev) => prev.filter((p) => p.id !== id));
-        }}
-        onProductUpdated={(updated) => {
-          setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-        }}
-        onViewProductInStore={(p) => {
-          setQuickViewProduct(p);
-          setIsAdminOpen(false);
-        }}
-      />
-    );
-  }
+  // Lock and sign out administrator session
+  const handleLockAdmin = () => {
+    try {
+      sessionStorage.removeItem('aura_admin_session');
+    } catch {
+      // ignore
+    }
+    setAdminSession(null);
+    setIsAdminOpen(false);
+    if (window.location.hash === '#admin') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  };
+
+  // Open admin gate or portal
+  const handleOpenAdminPortal = () => {
+    if (adminSession) {
+      setIsAdminOpen(true);
+    } else {
+      setIsAdminAccessModalOpen(true);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#faf8f5] text-[#241e1b] flex flex-col selection:bg-[#d8c8b4] selection:text-[#241e1b]">
-      
-      {/* 1. Header / Navbar */}
-      <Navbar
-        cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenChat={() => {
-          setChatInitialQuery(undefined);
-          setIsChatOpen(true);
-        }}
-        onOpenSizing={() => setIsSizingOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
-        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-        onSelectCategory={(cat) => {
+      {isAdminOpen && adminSession ? (
+        <AdminPortal
+          onClose={() => setIsAdminOpen(false)}
+          adminSession={adminSession}
+          onLock={handleLockAdmin}
+          onOpenAuthGate={() => setIsAdminAccessModalOpen(true)}
+          products={products}
+          onProductCreated={(newProduct) => {
+            setProducts((prev) => [newProduct, ...prev]);
+          }}
+          onProductDeleted={(id) => {
+            setProducts((prev) => prev.filter((p) => p.id !== id));
+          }}
+          onProductUpdated={(updated) => {
+            setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+          }}
+          onViewProductInStore={(p) => {
+            setQuickViewProduct(p);
+            setIsAdminOpen(false);
+          }}
+        />
+      ) : (
+        <>
+          {/* 1. Header / Navbar with Voice Search, Visual Scan, Customer Account & Cart */}
+          <Navbar
+            cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            currentUser={currentUser}
+            adminSession={adminSession}
+            onOpenAdmin={handleOpenAdminPortal}
+            onOpenSizing={() => setIsSizingOpen(true)}
+            onOpenVisualScan={() => setIsVisualScanOpen(true)}
+            onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+            onSelectCategory={(cat) => {
           setActiveCategory(cat);
           const el = document.getElementById('products-section');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -250,7 +365,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* 4. Top Product Catalog */}
+      {/* 4. Top Product Catalog (Browsing is unrestricted for all customers before login) */}
       <main className="flex-1">
         <ProductGrid
           products={products}
@@ -304,7 +419,16 @@ export default function App() {
           </div>
         </section>
 
-        {/* 6. Customer Reviews & Community Testimonials Section */}
+        {/* 6. High-Definition Cinema Video Jewel Craftsmanship Showcase */}
+        <VideoJewelSection
+          onShopClick={() => {
+            const el = document.getElementById('products-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onOpenSizing={() => setIsSizingOpen(true)}
+        />
+
+        {/* 7. Customer Reviews & Community Testimonials Section */}
         <ReviewsSection
           reviews={reviews}
           products={products}
@@ -316,14 +440,14 @@ export default function App() {
         />
       </main>
 
-      {/* 7. Footer */}
+      {/* 8. Footer (With discreet staff gatekeeper lock) */}
       <Footer
         onOpenSizing={() => setIsSizingOpen(true)}
         onOpenChat={() => {
           setChatInitialQuery(undefined);
           setIsChatOpen(true);
         }}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={handleOpenAdminPortal}
         onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
         onSelectCategory={(cat) => {
           setActiveCategory(cat);
@@ -352,9 +476,48 @@ export default function App() {
           </span>
         </button>
       )}
+        </>
+      )}
 
       {/* MODALS & DRAWERS */}
-      
+
+      {/* Customer Account Authentication Modal */}
+      <CustomerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onLoginSuccess={(user) => setCurrentUser(user)}
+        onLogout={() => setCurrentUser(null)}
+        onAdminLogin={(session) => {
+          setAdminSession(session);
+        }}
+        onOpenAdmin={handleOpenAdminPortal}
+      />
+
+      {/* Visual Jewelry Lens & Scanner Modal */}
+      <VisualScanModal
+        isOpen={isVisualScanOpen}
+        onClose={() => setIsVisualScanOpen(false)}
+        products={products}
+        onSelectProduct={(p) => setQuickViewProduct(p)}
+        onApplyCategoryFilter={(cat) => {
+          setActiveCategory(cat);
+          const el = document.getElementById('products-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* Secret Atelier Staff Gatekeeper Modal */}
+      <AdminAccessModal
+        isOpen={isAdminAccessModalOpen}
+        onClose={() => setIsAdminAccessModalOpen(false)}
+        onAuthorized={(session) => {
+          setAdminSession(session);
+          setIsAdminOpen(true);
+          setIsAdminAccessModalOpen(false);
+        }}
+      />
+
       {/* Quick View / Product Detail Modal */}
       <ProductDetailModal
         product={quickViewProduct}
@@ -409,11 +572,14 @@ export default function App() {
         onProceedToCheckout={() => setIsCheckoutOpen(true)}
       />
 
-      {/* Multi-Step Checkout Modal */}
+      {/* Multi-Step Checkout Modal (With Customer Account Gate) */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         cartItems={cartItems}
+        currentUser={currentUser}
+        onRequireLogin={() => setIsAuthModalOpen(true)}
+        onLoginSuccess={(user) => setCurrentUser(user)}
         appliedCoupon={appliedCoupon}
         onApplyCoupon={handleApplyCoupon}
         onRemoveCoupon={handleRemoveCoupon}

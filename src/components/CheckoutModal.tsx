@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { X, ShieldCheck, Lock, Truck, CreditCard, Gift, Check, ArrowRight, ArrowLeft, Tag, Smartphone } from 'lucide-react';
-import { CartItem, Coupon, ShippingMethod, OrderConfirmation } from '../types';
+import React, { useState, useEffect } from 'react';
+import { X, ShieldCheck, Lock, Truck, CreditCard, Gift, Check, ArrowRight, ArrowLeft, Tag, Smartphone, User, Sparkles, QrCode, Building, Banknote } from 'lucide-react';
+import { CartItem, Coupon, ShippingMethod, OrderConfirmation, CustomerUser } from '../types';
 import { SHIPPING_METHODS, AVAILABLE_COUPONS } from '../data/jewelryData';
+import { formatINR } from '../utils/currency';
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
+  currentUser: CustomerUser | null;
+  onRequireLogin: () => void;
+  onLoginSuccess?: (user: CustomerUser) => void;
   appliedCoupon: Coupon | null;
   onApplyCoupon: (code: string) => Promise<{ success: boolean; message: string }>;
   onRemoveCoupon: () => void;
@@ -19,6 +23,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   onClose,
   cartItems,
+  currentUser,
+  onRequireLogin,
+  onLoginSuccess,
   appliedCoupon,
   onApplyCoupon,
   onRemoveCoupon,
@@ -26,40 +33,61 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   giftMessage,
   onOrderSuccess,
 }) => {
-  if (!isOpen) return null;
-
   const [step, setStep] = useState<'delivery' | 'payment'>('delivery');
 
-  // Contact & Address
-  const [email, setEmail] = useState('clara.vance@gmail.com');
-  const [phone, setPhone] = useState('+1 (555) 234-5678');
-  const [fullName, setFullName] = useState('Clara Vance');
-  const [street, setStreet] = useState('742 Evergreen Terrace');
-  const [apt, setApt] = useState('Apt 4B');
-  const [city, setCity] = useState('Portland');
-  const [state, setState] = useState('OR');
-  const [zipCode, setZipCode] = useState('97201');
-  const [country, setCountry] = useState('United States');
+  // Contact & Address initialized with currentUser if present
+  const [email, setEmail] = useState(currentUser?.email || 'aarav.sharma@gmail.com');
+  const [phone, setPhone] = useState(currentUser?.phone || '+91 98765 43210');
+  const [fullName, setFullName] = useState(currentUser?.name || 'Aarav Sharma');
+  const [street, setStreet] = useState('42 Silver Oak Avenue, Bandra West');
+  const [apt, setApt] = useState('Flat 4B, Emerald Heights');
+
+  // Phone OTP Quick Account Creation State
+  const [otpPhoneInput, setOtpPhoneInput] = useState(currentUser?.phone || '+91 98765 43210');
+  const [otpNameInput, setOtpNameInput] = useState(currentUser?.name || 'Aarav Sharma');
+  const [otpCodeInput, setOtpCodeInput] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDemoCode, setOtpDemoCode] = useState<string | null>(null);
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [city, setCity] = useState('Mumbai');
+  const [state, setState] = useState('Maharashtra');
+  const [zipCode, setZipCode] = useState('400050');
+  const [country, setCountry] = useState('India');
+
+  // Update contact when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setEmail(currentUser.email);
+      setFullName(currentUser.name);
+      if (currentUser.phone) setPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   // Shipping Method
   const [selectedShippingId, setSelectedShippingId] = useState<string>('ship-standard');
   const [waxSealColor, setWaxSealColor] = useState('Antique Gold');
 
-  // Payment Method
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'applepay' | 'paypal' | 'klarna'>('card');
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('08/28');
-  const [cardCvv, setCardCvv] = useState('883');
-  const [cardholderName, setCardholderName] = useState('Clara Vance');
+  // Payment Method: Default to UPI for Indian luxury commerce
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking' | 'cod' | 'applepay' | 'paypal'>('upi');
+  const [upiId, setUpiId] = useState('aarav.sharma@okhdfcbank');
+  const [selectedBank, setSelectedBank] = useState('HDFC Bank');
+  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 5521');
+  const [cardExpiry, setCardExpiry] = useState('09/29');
+  const [cardCvv, setCardCvv] = useState('782');
+  const [cardholderName, setCardholderName] = useState('Aarav Sharma');
 
   // Coupon inside checkout
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
   const [checkoutCouponMsg, setCheckoutCouponMsg] = useState('');
 
-  // Processing state
+  // Processing & Error states
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // Calculations
+  // Calculations in INR (₹)
   const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
   let discount = 0;
@@ -72,9 +100,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }
 
   const selectedShipping = SHIPPING_METHODS.find((s) => s.id === selectedShippingId) || SHIPPING_METHODS[0];
-  const shippingCost = subtotal >= 150 || appliedCoupon?.code === 'FREESHIP' ? 0 : selectedShipping.price;
-  const giftWrapCost = giftWrapping ? 8 : 0;
-  const tax = Math.round((subtotal - discount) * 0.0825 * 100) / 100;
+  const shippingCost = subtotal >= 5000 || appliedCoupon?.code === 'FREESHIP' ? 0 : selectedShipping.price;
+  const giftWrapCost = giftWrapping ? 350 : 0;
+  // 3% Indian GST on handcrafted fine jewelry
+  const tax = Math.round((subtotal - discount) * 0.03 * 100) / 100;
   const grandTotal = Math.max(0, subtotal - discount + shippingCost + giftWrapCost + tax);
 
   const handleApplyCouponFromCheckout = async () => {
@@ -84,8 +113,88 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (res.success) setCheckoutCouponInput('');
   };
 
+  // Phone OTP: Send code to customer's mobile number
+  const handleSendOtp = async () => {
+    if (!otpPhoneInput || otpPhoneInput.trim().length < 6) {
+      setOtpError('Please enter a valid phone number with area code.');
+      return;
+    }
+    setIsSendingOtp(true);
+    setOtpError(null);
+    setOtpMessage(null);
+
+    try {
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: otpPhoneInput.trim(),
+          fullName: otpNameInput.trim() || fullName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOtpSent(true);
+        setOtpDemoCode(data.demoCode || '1234');
+        setOtpMessage(data.message || `Code sent to ${otpPhoneInput}`);
+        setPhone(otpPhoneInput.trim());
+      } else {
+        setOtpError(data.error || 'Failed to send OTP code. Please check your phone number.');
+      }
+    } catch {
+      setOtpError('Network error requesting verification code.');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  // Phone OTP: Verify code and link/create customer account
+  const handleVerifyOtp = async () => {
+    if (!otpCodeInput || otpCodeInput.trim().length < 4) {
+      setOtpError('Please enter the 4-digit verification code.');
+      return;
+    }
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: otpPhoneInput.trim(),
+          code: otpCodeInput.trim(),
+          fullName: otpNameInput.trim() || fullName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.user) {
+        setOtpMessage(`Phone verified! Logged in as ${data.user.name}.`);
+        setFullName(data.user.name);
+        setPhone(data.user.phone || otpPhoneInput.trim());
+        if (data.user.email) setEmail(data.user.email);
+        if (onLoginSuccess) {
+          onLoginSuccess(data.user);
+        }
+      } else {
+        setOtpError(data.error || 'Invalid verification code. Please check or use auto-fill.');
+      }
+    } catch {
+      setOtpError('Network error verifying code.');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const handleProcessOrder = async () => {
+    if (!currentUser) {
+      setStep('delivery');
+      setCheckoutError('Please enter your phone number and verify the OTP code below to create your patron account before ordering.');
+      return;
+    }
+
     setIsProcessing(true);
+    setCheckoutError(null);
 
     try {
       const response = await fetch('/api/checkout/process', {
@@ -107,13 +216,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             price: shippingCost,
           },
           paymentMethod:
-            paymentMethod === 'card'
-              ? 'Credit Card (3D Secure Authenticated)'
+            paymentMethod === 'upi'
+              ? `UPI Instant (${upiId || 'GPay / PhonePe'})`
+              : paymentMethod === 'card'
+              ? 'RuPay / Visa / Mastercard (3D Secure 2.0)'
+              : paymentMethod === 'netbanking'
+              ? `NetBanking (${selectedBank})`
+              : paymentMethod === 'cod'
+              ? 'Cash on Delivery (OTP Verified)'
               : paymentMethod === 'applepay'
-              ? 'Apple Pay (Biometric Authorization)'
-              : paymentMethod === 'paypal'
-              ? 'PayPal Express'
-              : 'Klarna Pay-in-4',
+              ? 'Apple / Google Pay Express'
+              : 'PayPal Express',
           appliedCoupon,
           giftWrapping,
           giftMessage,
@@ -128,14 +241,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }, 1200);
       } else {
         setIsProcessing(false);
-        alert(data.error || 'Failed to process order. Please try again.');
+        setCheckoutError(data.error || 'Failed to process order. Please check payment details.');
       }
-    } catch (err) {
-      console.error('Checkout error:', err);
+    } catch {
       setIsProcessing(false);
-      alert('Network error authorizing checkout.');
+      setCheckoutError('Network error authorizing checkout. Please try again.');
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
@@ -161,18 +275,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                setEmail('clara.vance@gmail.com');
-                setPhone('+1 (555) 234-5678');
-                setFullName('Clara Vance');
-                setStreet('742 Evergreen Terrace');
-                setApt('Apt 4B');
-                setCity('Portland');
-                setState('OR');
-                setZipCode('97201');
-                setCardholderName('Clara Vance');
-                setCardNumber('•••• •••• •••• 4242');
-                setCardExpiry('08/28');
-                setCardCvv('883');
+                setEmail('aarav.sharma@gmail.com');
+                setPhone('+91 98765 43210');
+                setFullName('Aarav Sharma');
+                setStreet('42 Silver Oak Avenue, Bandra West');
+                setApt('Flat 4B, Emerald Heights');
+                setCity('Mumbai');
+                setState('Maharashtra');
+                setZipCode('400050');
+                setCardholderName('Aarav Sharma');
+                setCardNumber('•••• •••• •••• 5521');
+                setCardExpiry('09/29');
+                setCardCvv('782');
               }}
               className="px-2.5 py-1 rounded-lg bg-[#241e1b] text-white hover:bg-[#a0683a] text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
               title="Auto-fill demo delivery and payment details in 1 click"
@@ -225,6 +339,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </span>
         </div>
 
+        {checkoutError && (
+          <div className="mx-6 mt-4 p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center justify-between">
+            <span>{checkoutError}</span>
+            <button
+              onClick={() => setCheckoutError(null)}
+              className="text-red-700 hover:text-red-900 font-bold ml-2 cursor-pointer"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+
         {/* Body Content */}
         <div className="overflow-y-auto p-6 sm:p-8 flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -235,6 +361,172 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {step === 'delivery' ? (
                 /* STEP 1: DELIVERY & COURIER OPTIONS */
                 <div className="space-y-5">
+                  {/* Customer Phone OTP Account Verification (Required Before Ordering) */}
+                  {currentUser ? (
+                    <div className="p-4 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex items-center justify-between text-xs text-emerald-950 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-700 text-white font-bold flex items-center justify-center text-sm shadow">
+                          {currentUser.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#241e1b] text-sm">{currentUser.name}</span>
+                            <span className="text-[10px] uppercase font-bold bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-full font-mono">
+                              ✓ Verified Patron
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-[#5c4d3f]">
+                            {currentUser.phone || currentUser.email} &bull; {currentUser.vipTier || 'Atelier Patron'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onRequireLogin}
+                        className="text-[11px] text-[#8a5d3b] hover:text-[#241e1b] font-semibold underline cursor-pointer"
+                      >
+                        Account Details
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-5 bg-gradient-to-br from-[#faf4ec] to-[#f5efe6] border-2 border-[#e0a96d] rounded-2xl space-y-4 shadow-sm text-xs">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-[#241e1b] text-[#e0a96d] rounded-xl shadow-sm">
+                            <Smartphone className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-serif text-base font-bold text-[#241e1b]">
+                              Step 0: Instant Phone Account Setup
+                            </h4>
+                            <p className="text-[11px] text-[#6e5d4e]">
+                              Type your mobile number to receive a 4-digit OTP. Your patron account will be created instantly so you can order smoothly.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] uppercase font-bold px-2 py-1 bg-[#241e1b] text-[#e0a96d] rounded-md shrink-0">
+                          Required to Order
+                        </span>
+                      </div>
+
+                      {/* Phone & Name inputs */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[#241e1b] mb-1">
+                            Your Full Name:
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Clara Vance"
+                            value={otpNameInput}
+                            onChange={(e) => setOtpNameInput(e.target.value)}
+                            className="w-full bg-white border border-[#d8c8b4] rounded-xl px-3 py-2 text-xs text-[#241e1b] focus:outline-none focus:border-[#241e1b]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-[#241e1b] mb-1">
+                            Mobile Phone Number:
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="tel"
+                              placeholder="+1 (555) 234-5678"
+                              value={otpPhoneInput}
+                              onChange={(e) => setOtpPhoneInput(e.target.value)}
+                              className="flex-1 bg-white border border-[#d8c8b4] rounded-xl px-3 py-2 text-xs text-[#241e1b] focus:outline-none focus:border-[#241e1b]"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSendOtp}
+                              disabled={isSendingOtp}
+                              className="px-3.5 py-2 bg-[#241e1b] hover:bg-[#a0683a] text-white text-xs font-semibold rounded-xl transition-all shadow-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                            >
+                              {isSendingOtp ? (
+                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <span>{otpSent ? 'Resend' : 'Send OTP'}</span>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* OTP Code Input Drawer */}
+                      {otpSent && (
+                        <div className="p-3.5 bg-white border border-[#e8ded1] rounded-xl space-y-3 animate-fadeIn">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-[#241e1b] flex items-center gap-1.5">
+                              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                              <span>Enter 4-Digit SMS Code:</span>
+                            </span>
+                            {otpDemoCode && (
+                              <button
+                                type="button"
+                                onClick={() => setOtpCodeInput(otpDemoCode)}
+                                className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono text-[10px] font-bold border border-emerald-300 hover:bg-emerald-200 transition-colors cursor-pointer"
+                                title="Click to auto-fill code"
+                              >
+                                ⚡ Auto-Fill Code: {otpDemoCode}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="e.g. 1234"
+                              value={otpCodeInput}
+                              onChange={(e) => setOtpCodeInput(e.target.value)}
+                              className="w-32 bg-[#faf8f5] border-2 border-[#241e1b] rounded-xl px-3 py-2 text-center text-sm font-mono font-bold tracking-widest text-[#241e1b] focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleVerifyOtp}
+                              disabled={isVerifyingOtp}
+                              className="flex-1 py-2.5 px-4 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                              {isVerifyingOtp ? (
+                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Check className="w-4 h-4" />
+                                  <span>Verify & Create Account</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Status / Error / Success notices */}
+                      {otpError && (
+                        <div className="p-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex justify-between items-center">
+                          <span>{otpError}</span>
+                          <button onClick={() => setOtpError(null)} className="font-bold text-red-900 ml-2">&times;</button>
+                        </div>
+                      )}
+
+                      {otpMessage && (
+                        <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{otpMessage}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[11px] text-[#8c7866] pt-1 border-t border-[#e8ded1]">
+                        <span>Takes only 5 seconds &bull; No password needed</span>
+                        <button
+                          type="button"
+                          onClick={onRequireLogin}
+                          className="text-[#8a5d3b] hover:text-[#241e1b] underline font-medium cursor-pointer"
+                        >
+                          Or sign in with existing email
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-[#8a5d3b]">
@@ -353,7 +645,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </h4>
                     <div className="space-y-2">
                       {SHIPPING_METHODS.map((method) => {
-                        const isFree = subtotal >= 150 && method.id === 'ship-standard';
+                        const isFree = subtotal >= 5000 && method.id === 'ship-standard';
                         const price = isFree ? 0 : method.price;
 
                         return (
@@ -384,7 +676,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               </div>
                             </div>
                             <span className="text-xs font-bold text-[#241e1b] shrink-0 ml-2">
-                              {price === 0 ? 'FREE' : `$${price.toFixed(2)}`}
+                              {price === 0 ? 'FREE' : formatINR(price)}
                             </span>
                           </label>
                         );
@@ -394,7 +686,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStep('payment')}
+                    onClick={() => {
+                      if (!currentUser) {
+                        setCheckoutError('Please type your phone number and verify OTP above to create your patron account before proceeding to payment.');
+                        return;
+                      }
+                      setStep('payment');
+                    }}
                     className="w-full py-3.5 rounded-xl bg-[#241e1b] hover:bg-[#a0683a] text-white text-xs font-semibold tracking-wider uppercase flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
                   >
                     <span>Continue to Payment Method</span>
@@ -419,63 +717,132 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   {/* Payment Method Selector Tabs */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('card')}
-                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                        paymentMethod === 'card'
-                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm'
+                      onClick={() => setPaymentMethod('upi')}
+                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                        paymentMethod === 'upi'
+                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm ring-1 ring-[#e0a96d]'
                           : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
                       }`}
                     >
-                      <CreditCard className="w-5 h-5" />
-                      <span className="text-[11px] font-semibold">Credit Card</span>
+                      <QrCode className="w-5 h-5 text-[#e0a96d]" />
+                      <span className="text-[11px] font-bold">UPI / QR</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('card')}
+                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                        paymentMethod === 'card'
+                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm ring-1 ring-[#e0a96d]'
+                          : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
+                      }`}
+                    >
+                      <CreditCard className="w-5 h-5 text-[#e0a96d]" />
+                      <span className="text-[11px] font-bold">RuPay / Cards</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('netbanking')}
+                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                        paymentMethod === 'netbanking'
+                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm ring-1 ring-[#e0a96d]'
+                          : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
+                      }`}
+                    >
+                      <Building className="w-5 h-5 text-[#e0a96d]" />
+                      <span className="text-[11px] font-bold">NetBanking</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cod')}
+                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                        paymentMethod === 'cod'
+                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm ring-1 ring-[#e0a96d]'
+                          : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
+                      }`}
+                    >
+                      <Banknote className="w-5 h-5 text-[#e0a96d]" />
+                      <span className="text-[11px] font-bold">Cash on Delivery</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('applepay')}
-                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
+                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
                         paymentMethod === 'applepay'
-                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm'
+                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm ring-1 ring-[#e0a96d]'
                           : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
                       }`}
                     >
-                      <Smartphone className="w-5 h-5" />
-                      <span className="text-[11px] font-semibold">Apple / GPay</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('paypal')}
-                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                        paymentMethod === 'paypal'
-                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm'
-                          : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
-                      }`}
-                    >
-                      <span className="font-serif italic font-bold text-sm">P</span>
-                      <span className="text-[11px] font-semibold">PayPal</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('klarna')}
-                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                        paymentMethod === 'klarna'
-                          ? 'border-[#241e1b] bg-[#241e1b] text-white shadow-sm'
-                          : 'border-[#d8c8b4] bg-white text-[#4a3f35] hover:border-[#a0683a]'
-                      }`}
-                    >
-                      <span className="font-bold text-xs bg-pink-200 text-pink-800 px-1 rounded">K.</span>
-                      <span className="text-[11px] font-semibold">Klarna (4x)</span>
+                      <Smartphone className="w-5 h-5 text-[#e0a96d]" />
+                      <span className="text-[11px] font-bold">GPay / Apple</span>
                     </button>
                   </div>
 
                   {/* Selected Payment Method Form View */}
+                  {paymentMethod === 'upi' && (
+                    <div className="p-5 bg-white rounded-2xl border border-[#e8ded1] space-y-4 shadow-sm">
+                      <div className="flex items-center justify-between pb-3 border-b border-[#f0e8dc]">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                            INSTANT ZERO FEE
+                          </span>
+                          <span className="text-xs text-[#6e5d4e]">Google Pay &bull; PhonePe &bull; Paytm &bull; BHIM</span>
+                        </div>
+                        <span className="text-xs font-bold text-emerald-700">₹0 Convenience Fee</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[#241e1b] mb-1">
+                          Enter your Virtual Payment Address (VPA / UPI ID):
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="e.g. mobile@upi or username@okhdfcbank"
+                            value={upiId}
+                            onChange={(e) => setUpiId(e.target.value)}
+                            className="flex-1 bg-[#faf8f5] border border-[#d8c8b4] rounded-xl px-3 py-2 text-xs font-mono text-[#241e1b] focus:outline-none focus:border-[#241e1b]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setUpiId('aarav.sharma@okhdfcbank')}
+                            className="px-3 py-1.5 bg-[#f5efe6] border border-[#d8c8b4] text-[#8a5d3b] hover:bg-[#ede3d4] text-[11px] font-semibold rounded-xl"
+                          >
+                            Demo VPA
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Or Scan QR */}
+                      <div className="p-3.5 bg-[#fcfbf9] border border-dashed border-[#d8c8b4] rounded-xl flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white border border-[#e0d3c1] rounded-lg p-1.5 flex items-center justify-center shrink-0">
+                            <QrCode className="w-full h-full text-[#241e1b]" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-[#241e1b] block">Or Scan Dynamic UPI QR</span>
+                            <span className="text-[11px] text-[#6e5d4e]">Open any UPI app and scan to pay {formatINR(grandTotal)}</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded">
+                          ✓ Auto-Detect
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {paymentMethod === 'card' && (
                     <div className="p-4 bg-white rounded-2xl border border-[#e8ded1] space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#f0e8dc]">
+                        <span className="text-xs font-semibold text-[#241e1b]">Domestic & International Cards</span>
+                        <span className="text-[10px] text-[#8c7866] font-mono">RuPay &bull; Visa &bull; Mastercard</span>
+                      </div>
                       <div>
                         <label className="block text-[11px] font-semibold text-[#241e1b] mb-1">
                           Cardholder Name:
@@ -512,7 +879,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                         <div>
                           <label className="block text-[11px] font-semibold text-[#241e1b] mb-1">
-                            Security CVV:
+                            CVV / CVC:
                           </label>
                           <input
                             type="password"
@@ -525,7 +892,49 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#8c7866] pt-1">
                         <Lock className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>Mock 3D-Secure 2.0 sandbox enabled. No live charge will occur.</span>
+                        <span>Protected by RBI-Mandated Two-Factor OTP & 3D Secure 2.0.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'netbanking' && (
+                    <div className="p-5 bg-white rounded-2xl border border-[#e8ded1] space-y-4">
+                      <label className="block text-xs font-semibold text-[#241e1b]">
+                        Choose from 50+ Verified Indian Banks:
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {['HDFC Bank', 'State Bank of India', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra', 'Punjab National Bank'].map((bank) => (
+                          <button
+                            key={bank}
+                            type="button"
+                            onClick={() => setSelectedBank(bank)}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                              selectedBank === bank
+                                ? 'border-[#241e1b] bg-[#241e1b] text-white font-semibold'
+                                : 'border-[#d8c8b4] bg-[#faf8f5] text-[#4a3f35] hover:border-[#a0683a]'
+                            }`}
+                          >
+                            {bank}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-[#6e5d4e]">
+                        Selected: <strong className="text-[#241e1b]">{selectedBank}</strong>. You will be redirected to secure retail banking portal for instant authorization.
+                      </p>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'cod' && (
+                    <div className="p-5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3">
+                      <div className="flex items-center gap-2 text-amber-900 font-semibold text-xs">
+                        <Banknote className="w-4 h-4 text-amber-700" />
+                        <span>Cash on Delivery (COD) Available</span>
+                      </div>
+                      <p className="text-xs text-[#5c4d3f] leading-relaxed">
+                        Pay in cash or via mobile UPI QR scan to the BlueDart courier executive at your doorstep when receiving the sealed parcel.
+                      </p>
+                      <div className="text-[11px] text-[#8a5d3b] bg-white/70 p-2.5 rounded-xl border border-amber-100">
+                        ✓ Studio tamper-evident seal check before delivery &bull; OTP verification at delivery
                       </div>
                     </div>
                   )}
@@ -535,53 +944,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <div className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center mx-auto text-xl">
                         
                       </div>
-                      <h5 className="font-semibold text-sm text-[#241e1b]">One-Touch Express Checkout</h5>
+                      <h5 className="font-semibold text-sm text-[#241e1b]">One-Touch Express Mobile Authorization</h5>
                       <p className="text-xs text-[#6e5d4e]">
-                        Authorize directly with Touch ID or Face ID. Your shipping address and billing card are automatically linked.
-                      </p>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'paypal' && (
-                    <div className="p-6 bg-white rounded-2xl border border-[#e8ded1] text-center space-y-3">
-                      <div className="w-12 h-12 bg-[#003087] text-white rounded-2xl flex items-center justify-center mx-auto font-bold font-serif text-lg">
-                        PayPal
-                      </div>
-                      <h5 className="font-semibold text-sm text-[#241e1b]">PayPal Express Checkout</h5>
-                      <p className="text-xs text-[#6e5d4e]">
-                        Pay using your PayPal balance, bank account, or linked rewards. Buyer Protection included.
-                      </p>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'klarna' && (
-                    <div className="p-5 bg-pink-50/60 rounded-2xl border border-pink-200 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-pink-900">Pay in 4 interest-free installments</span>
-                        <span className="text-xs font-mono font-bold text-pink-900">
-                          ${(grandTotal / 4).toFixed(2)} / bi-weekly
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 text-center text-[10px]">
-                        <div className="p-2 bg-white rounded-lg border border-pink-200">
-                          <span className="block font-bold">Today</span>
-                          <span>${(grandTotal / 4).toFixed(2)}</span>
-                        </div>
-                        <div className="p-2 bg-white rounded-lg border border-pink-200">
-                          <span className="block font-bold">2 Wks</span>
-                          <span>${(grandTotal / 4).toFixed(2)}</span>
-                        </div>
-                        <div className="p-2 bg-white rounded-lg border border-pink-200">
-                          <span className="block font-bold">4 Wks</span>
-                          <span>${(grandTotal / 4).toFixed(2)}</span>
-                        </div>
-                        <div className="p-2 bg-white rounded-lg border border-pink-200">
-                          <span className="block font-bold">6 Wks</span>
-                          <span>${(grandTotal / 4).toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-pink-800">
-                        No credit score impact &bull; Zero interest when paid on time.
+                        Authorize directly with Google Pay or Apple Pay using biometric face or fingerprint confirmation.
                       </p>
                     </div>
                   )}
@@ -596,12 +961,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {isProcessing ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Authorizing 3D-Secure Transaction...</span>
+                        <span>Authorizing 3D-Secure Transaction in ₹ INR...</span>
                       </>
                     ) : (
                       <>
                         <Lock className="w-4 h-4 text-[#e0a96d]" />
-                        <span>Authorize & Place Order • ${grandTotal.toFixed(2)}</span>
+                        <span>Authorize & Place Order • {formatINR(grandTotal)}</span>
                       </>
                     )}
                   </button>
@@ -633,7 +998,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </p>
                     </div>
                     <span className="text-xs font-serif font-bold text-[#241e1b]">
-                      ${(item.product.price * item.quantity).toFixed(2)}
+                      {formatINR(item.product.price * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -662,7 +1027,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <span>
                       Code <strong>{appliedCoupon.code}</strong> applied
                     </span>
-                    <span className="font-bold">-${discount.toFixed(2)}</span>
+                    <span className="font-bold">-{formatINR(discount)}</span>
                   </div>
                 ) : (
                   <div>
@@ -693,31 +1058,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="pt-2 border-t border-[#f0e8dc] space-y-1.5 text-xs text-[#5c4d3f]">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>{formatINR(subtotal)}</span>
                 </div>
                 {appliedCoupon && (
                   <div className="flex justify-between text-emerald-800 font-medium">
                     <span>Discount ({appliedCoupon.code})</span>
-                    <span>-${discount.toFixed(2)}</span>
+                    <span>-{formatINR(discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Insured Courier ({selectedShipping.name})</span>
-                  <span>{shippingCost === 0 ? <strong className="text-emerald-700">FREE</strong> : `$${shippingCost.toFixed(2)}`}</span>
+                  <span>{shippingCost === 0 ? <strong className="text-emerald-700">FREE</strong> : formatINR(shippingCost)}</span>
                 </div>
                 {giftWrapping && (
                   <div className="flex justify-between">
                     <span>Wax-Sealed Keepsake Packaging</span>
-                    <span>+$8.00</span>
+                    <span>+₹350</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>Estimated Sales Tax (8.25%)</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>Estimated GST (3% Jewel Standard)</span>
+                  <span>{formatINR(tax)}</span>
                 </div>
                 <div className="flex justify-between text-base font-serif font-bold text-[#241e1b] pt-2 border-t border-[#e0d3c1]">
                   <span>Total Amount</span>
-                  <span>${grandTotal.toFixed(2)}</span>
+                  <span>{formatINR(grandTotal)}</span>
                 </div>
               </div>
 

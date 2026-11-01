@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Trash2, ShoppingBag, ArrowRight, Tag, Gift, Check, ShieldCheck, Sparkles } from 'lucide-react';
 import { CartItem, Coupon } from '../types';
+import { formatINR } from '../utils/currency';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -33,8 +34,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   setGiftMessage,
   onProceedToCheckout,
 }) => {
-  if (!isOpen) return null;
-
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponFeedback, setCouponFeedback] = useState<{ message: string; isError: boolean } | null>(null);
@@ -51,12 +50,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }
 
-  const freeShippingThreshold = 150;
+  const freeShippingThreshold = 5000;
   const progressToFreeShipping = Math.min(100, (subtotal / freeShippingThreshold) * 100);
   const amountNeededForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
 
-  const giftWrapCost = giftWrapping ? 8 : 0;
-  const estimatedShipping = subtotal >= freeShippingThreshold || appliedCoupon?.code === 'FREESHIP' ? 0 : 15;
+  const giftWrapCost = giftWrapping ? 350 : 0;
+  const estimatedShipping = subtotal >= freeShippingThreshold || appliedCoupon?.code === 'FREESHIP' ? 0 : 250;
   const estimatedTotal = Math.max(0, subtotal - discountAmount + giftWrapCost + (subtotal > 0 ? estimatedShipping : 0));
 
   const handleApplyCoupon = async (codeToApply?: string) => {
@@ -75,6 +74,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setCouponFeedback({ message: result.message, isError: true });
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end animate-fadeIn">
@@ -108,7 +109,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
           ) : (
             <div>
-              <p>Add <strong>${amountNeededForFreeShip.toFixed(2)}</strong> more for Free Insured Ground Shipping</p>
+              <p>Add <strong>{formatINR(amountNeededForFreeShip)}</strong> more for Free Insured Ground Shipping</p>
               <div className="w-full bg-[#d8c8b4] h-1.5 rounded-full mt-1.5 overflow-hidden">
                 <div
                   className="bg-[#a0683a] h-full rounded-full transition-all duration-500"
@@ -194,7 +195,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
 
                     <span className="font-serif text-sm font-bold text-[#241e1b]">
-                      ${(item.product.price * item.quantity).toFixed(2)}
+                      {formatINR(item.product.price * item.quantity)}
                     </span>
                   </div>
                 </div>
@@ -229,7 +230,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <strong>{appliedCoupon.code}</strong>: {appliedCoupon.description}
                       </div>
                     </div>
-                    <span className="font-bold">-${discountAmount.toFixed(2)}</span>
+                    <span className="font-bold">-{formatINR(discountAmount)}</span>
                   </div>
                 ) : (
                   <div>
@@ -261,10 +262,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </button>
                       <span>•</span>
                       <button
-                        onClick={() => handleApplyCoupon('SPARKLE10')}
+                        onClick={() => handleApplyCoupon('SPARKLE1000')}
                         className="underline font-mono text-[#a0683a] hover:text-[#241e1b]"
                       >
-                        SPARKLE10 ($10 off)
+                        SPARKLE1000 (₹1,000 off)
                       </button>
                     </div>
                   </div>
@@ -294,7 +295,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   className="rounded text-[#a0683a] focus:ring-[#a0683a]"
                 />
                 <Gift className="w-3.5 h-3.5 text-[#a0683a]" />
-                <span>Add Heirloom Wax-Sealed Gift Wrap (+$8.00)</span>
+                <span>Add Heirloom Wax-Sealed Gift Wrap (+₹350)</span>
               </label>
 
               {giftWrapping && (
@@ -321,18 +322,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <div className="space-y-1.5 text-xs text-[#5c4d3f]">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>{formatINR(subtotal)}</span>
               </div>
               {appliedCoupon && (
                 <div className="flex justify-between text-emerald-800 font-medium">
                   <span>Coupon ({appliedCoupon.code})</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
+                  <span>-{formatINR(discountAmount)}</span>
                 </div>
               )}
               {giftWrapping && (
                 <div className="flex justify-between">
                   <span>Heirloom Gift Wrapping</span>
-                  <span>+$8.00</span>
+                  <span>+₹350</span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -341,13 +342,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {estimatedShipping === 0 ? (
                     <strong className="text-emerald-700">FREE</strong>
                   ) : (
-                    `$${estimatedShipping.toFixed(2)}`
+                    formatINR(estimatedShipping)
                   )}
                 </span>
               </div>
               <div className="flex justify-between text-base font-serif font-bold text-[#241e1b] pt-2 border-t border-[#e0d3c1]">
                 <span>Estimated Total</span>
-                <span>${estimatedTotal.toFixed(2)}</span>
+                <span>{formatINR(estimatedTotal)}</span>
               </div>
             </div>
 

@@ -30,23 +30,37 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
-        // Category filter
-        if (activeCategory !== 'all' && p.category !== activeCategory) {
-          return false;
+        // Multi-token search matching across all fields
+        if (searchQuery.trim()) {
+          const rawTokens = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+          const fullText = `${p.name} ${p.subtitle} ${p.category} ${p.materials} ${p.gemstone || ''} ${p.finish} ${p.badge || ''}`.toLowerCase();
+          
+          // Check if every token exists in the product text
+          const allTokensMatch = rawTokens.every((token) => fullText.includes(token));
+          if (!allTokensMatch) return false;
+
+          // If user specifically searched, we allow matching across categories unless category was explicitly re-chosen
+          if (activeCategory !== 'all' && p.category !== activeCategory) {
+            // If the search term explicitly names another category, show it
+            const mentionsAnotherCategory = ['ring', 'rings', 'necklace', 'necklaces', 'earring', 'earrings', 'cuff', 'cuffs', 'bracelet', 'bridal'].some(
+              (catWord) => rawTokens.includes(catWord) && p.category.includes(catWord.replace(/s$/, ''))
+            );
+            if (!mentionsAnotherCategory) {
+              return false;
+            }
+          }
+        } else {
+          // Standard Category filter when no search query
+          if (activeCategory !== 'all' && p.category !== activeCategory) {
+            return false;
+          }
         }
+
         // Curation badge filter
         if (curationFilter === 'bestsellers' && !p.isBestSeller) return false;
         if (curationFilter === 'new' && !p.isNewArrival) return false;
         if (curationFilter === 'artisan' && !p.isArtisanPick) return false;
-        // Search query
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchName = p.name.toLowerCase().includes(q);
-          const matchSub = p.subtitle.toLowerCase().includes(q);
-          const matchMat = p.materials.toLowerCase().includes(q);
-          const matchCat = p.category.toLowerCase().includes(q);
-          if (!matchName && !matchSub && !matchMat && !matchCat) return false;
-        }
+
         return true;
       })
       .sort((a, b) => {
